@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model Shop {
+  shop          String   @id
+  plan          String   @default("Free")
+  timezone      String   @default("UTC")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  countdowns    Countdown[]
+}
+
+model Countdown {
+  id              String   @id @default(uuid())
+  shopId          String
+  shop            Shop     @relation(fields: [shopId], references: [shop])
+  title           String
+  description     String?
+  templateId      String   @default("template-1")
+  
+  // Customization
+  fontColor       String   @default("#000000")
+  textColor       String   @default("#333333")
+  buttonColor     String   @default("#000000")
+  backgroundColor String   @default("#ffffff")
+  
+  // Content
+  ctaText         String?  @default("Shop Now")
+  ctaUrl          String?
+  
+  // Schedule
+  expiryDate      DateTime
+  
+  // Status
+  active          Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  analytics       AnalyticsEvent[]
+}
+
+model AnalyticsEvent {
+  id            String   @id @default(uuid())
+  countdownId   String
+  countdown     Countdown @relation(fields: [countdownId], references: [id], onDelete: Cascade)
+  eventType     String   // "VIEW" or "CLICK"
+  createdAt     DateTime @default(now())
+}

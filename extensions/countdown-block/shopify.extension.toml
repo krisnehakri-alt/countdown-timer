@@ -1,0 +1,7 @@
+api_version = "2024-04"
+
+[[extensions]]
+type = "theme"
+name = "Countdown Pro"
+handle = "countdown-block"
+uid = "71096237-33ec-09bd-cd2f-d653f8b4d7e8c570d2aa"

@@ -1,0 +1,24 @@
+{% schema %}
+{
+  "name": "Countdown Pro",
+  "target": "section",
+  "javascript": "countdown.js",
+  "stylesheet": "countdown.css",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Countdown Settings"
+    },
+    {
+      "type": "paragraph",
+      "content": "Manage your countdown campaigns from the app dashboard."
+    }
+  ]
+}
+{% endschema %}
+
+<div class="countdown-pro-wrapper" data-shop="{{ shop.domain }}">
+  <div class="countdown-pro-container" id="countdown-pro-container">
+    <!-- Rendered dynamically via JS -->
+  </div>
+</div>

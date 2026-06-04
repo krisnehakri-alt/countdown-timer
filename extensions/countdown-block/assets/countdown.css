@@ -1,0 +1,125 @@
+.countdown-pro-wrapper {
+  width: 100%;
+  margin: 20px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.countdown-pro-container {
+  width: 100%;
+  max-width: 800px;
+}
+
+/* Template 1: Free */
+.cd-template-1 {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  font-family: sans-serif;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Template 2: Starter */
+.cd-template-2 {
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  font-family: sans-serif;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: transform 0.3s ease;
+}
+.cd-template-2:hover {
+  transform: translateY(-5px);
+}
+
+/* Template 3: Starter Neon */
+.cd-template-3 {
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  font-family: monospace;
+  box-shadow: 0 0 20px rgba(0,0,0,0.2);
+}
+
+/* Template 4: Growth Dark */
+.cd-template-4 {
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  font-family: 'Helvetica Neue', sans-serif;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Template 5: Growth Launch */
+.cd-template-5 {
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  font-family: sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Template 6 & 7: Premium */
+.cd-template-6, .cd-template-7 {
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  font-family: 'Georgia', serif;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+}
+
+.cd-timer-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 25px 0;
+}
+
+.cd-timer-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 12px;
+  padding: 10px 15px;
+  border-radius: 8px;
+}
+
+.cd-timer-val {
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.cd-timer-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  margin-top: 5px;
+  letter-spacing: 1px;
+}
+
+.cd-btn {
+  padding: 14px 35px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 15px;
+  transition: opacity 0.2s;
+}
+
+.cd-btn:hover {
+  opacity: 0.9;
+}
+
+/* Template specific overrides */
+.cd-template-3 .cd-timer-val { text-shadow: 0 0 10px currentColor; }
+.cd-template-3 .cd-btn { box-shadow: 0 0 15px currentColor; border-radius: 30px; }
+.cd-template-4 .cd-timer-block { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+.cd-template-6 .cd-timer-block { background: rgba(0,0,0,0.4); border: 1px solid currentColor; }
+.cd-template-7 .cd-timer-block { background: rgba(0,0,0,0.5); }
