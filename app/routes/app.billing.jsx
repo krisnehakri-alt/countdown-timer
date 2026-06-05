@@ -1,52 +1,165 @@
-import { useLoaderData, useSubmit, useNavigation, redirect } from "react-router";
+import { useLoaderData, useSubmit, useNavigation, redirect, useActionData } from "react-router";
 import { Page, Card, Text, Button, BlockStack, InlineStack, Badge, Grid, Divider, List } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { useEffect } from "react";
 
 const MONTHLY_PLAN_STARTER = "Starter Plan";
 const MONTHLY_PLAN_GROWTH = "Growth Plan";
 const MONTHLY_PLAN_PREMIUM = "Premium Plan";
 
 export const loader = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
-  const billingCheck = await billing.check();
-  
+  const { admin } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const chargeId = url.searchParams.get("charge_id");
+
+  // Query active subscriptions
+  const response = await admin.graphql(`
+    query getActiveSubscriptions {
+      currentAppInstallation {
+        activeSubscriptions {
+          id
+          name
+          test
+        }
+      }
+    }
+  `);
+
+  const { data } = await response.json();
+  const activeSubscriptions = data?.currentAppInstallation?.activeSubscriptions || [];
+
   let currentPlan = "Free";
-  if (billingCheck.hasActivePayment) {
-    currentPlan = billingCheck.appSubscriptions[0].name;
+  if (activeSubscriptions.length > 0) {
+    currentPlan = activeSubscriptions[0].name;
   }
 
-  return { currentPlan };
+  return { currentPlan, success: !!chargeId };
 };
 
 export const action = async ({ request }) => {
-  const { billing, session } = await authenticate.admin(request);
+  const { admin, session, redirect: shopifyRedirect } = await authenticate.admin(request);
   const formData = await request.formData();
   const plan = formData.get("plan");
 
+  // Query active subscriptions to cancel them if needed
+  const response = await admin.graphql(`
+    query getActiveSubscriptions {
+      currentAppInstallation {
+        activeSubscriptions {
+          id
+        }
+      }
+    }
+  `);
+  const { data } = await response.json();
+  const activeSubscriptions = data?.currentAppInstallation?.activeSubscriptions || [];
+
   if (plan === "Free") {
-    const billingCheck = await billing.check();
-    if (billingCheck.hasActivePayment) {
-      await billing.cancel({
-        subscriptionId: billingCheck.appSubscriptions[0].id,
-        isTest: true,
-        prorate: true,
+    // Cancel all active subscriptions
+    for (const sub of activeSubscriptions) {
+      await admin.graphql(`
+        mutation CancelSubscription($id: ID!) {
+          appSubscriptionCancel(id: $id, prorate: true) {
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `, {
+        variables: { id: sub.id }
       });
     }
     return redirect("/app/billing");
   }
 
-  return await billing.request({
-    plan: plan,
-    isTest: true,
-    returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`,
+  // Define pricing
+  let amount = 0;
+  if (plan === MONTHLY_PLAN_STARTER) amount = 39.00;
+  else if (plan === MONTHLY_PLAN_GROWTH) amount = 59.00;
+  else if (plan === MONTHLY_PLAN_PREMIUM) amount = 99.00;
+
+  if (amount === 0) return redirect("/app/billing");
+
+  const returnUrl = `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`;
+
+  const createResponse = await admin.graphql(`
+    mutation CreateSubscription($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean) {
+      appSubscriptionCreate(name: $name, lineItems: $lineItems, returnUrl: $returnUrl, test: $test) {
+        appSubscription {
+          id
+        }
+        confirmationUrl
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `, {
+    variables: {
+      name: plan,
+      returnUrl: returnUrl,
+      test: true,
+      lineItems: [
+        {
+          plan: {
+            appRecurringPricingDetails: {
+              price: {
+                amount: amount,
+                currencyCode: "USD"
+              },
+              interval: "EVERY_30_DAYS"
+            }
+          }
+        }
+      ]
+    }
   });
+
+  const createData = await createResponse.json();
+  const confirmationUrl = createData.data?.appSubscriptionCreate?.confirmationUrl;
+  const userErrors = createData.data?.appSubscriptionCreate?.userErrors;
+
+  if (userErrors && userErrors.length > 0) {
+    console.error("Subscription create errors:", userErrors);
+    return null;
+  }
+
+  if (confirmationUrl) {
+    console.log("[Billing Flow] returnUrl used in mutation:", returnUrl);
+    console.log("[Billing Flow] confirmationUrl received:", confirmationUrl);
+    console.log("[Billing Flow] Redirect method being executed: Client-side top-level navigation via useActionData and window.open");
+    
+    // Return the confirmationUrl to the client instead of doing a server-side redirect, 
+    // which causes the browser to try and follow a 302 inside the iframe fetch request.
+    return { confirmationUrl };
+  }
+
+  return redirect("/app/billing");
 };
 
 export default function BillingPage() {
-  const { currentPlan } = useLoaderData();
+  const { currentPlan, success } = useLoaderData();
+  const actionData = useActionData();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isLoading = navigation.state === "submitting";
+  const shopify = useAppBridge();
+
+  useEffect(() => {
+    if (success) {
+      shopify.toast.show("Subscription activated successfully!");
+    }
+  }, [success, shopify]);
+
+  useEffect(() => {
+    if (actionData?.confirmationUrl) {
+      console.log("[Billing Flow] Client executing window.open to confirmationUrl:", actionData.confirmationUrl);
+      window.open(actionData.confirmationUrl, "_top");
+    }
+  }, [actionData]);
 
   const handleUpgrade = (planName) => {
     submit({ plan: planName }, { method: "post" });
@@ -108,10 +221,10 @@ export default function BillingPage() {
         <Text variant="bodyMd" as="p">
           Upgrade your plan to unlock more premium countdown templates. Templates you create with premium designs will automatically be locked if you downgrade.
         </Text>
-        
+
         <Grid>
           {plans.map((plan, index) => (
-            <Grid.Cell key={index} columnSpan={{xs: 6, sm: 6, md: 3, lg: 3, xl: 3}}>
+            <Grid.Cell key={index} columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
               <Card padding="400">
                 <BlockStack gap="400">
                   <InlineStack align="space-between">
@@ -120,9 +233,9 @@ export default function BillingPage() {
                   </InlineStack>
                   <Text variant="headingXl" as="h2">{plan.price}</Text>
                   <Text tone="subdued" as="p">{plan.description}</Text>
-                  
+
                   <Divider />
-                  
+
                   <div style={{ minHeight: '180px' }}>
                     <List type="bullet">
                       {plan.features.map((feature, i) => (
@@ -130,11 +243,11 @@ export default function BillingPage() {
                       ))}
                     </List>
                   </div>
-                  
+
                   {!plan.current && (
-                    <Button 
-                      fullWidth 
-                      variant="primary" 
+                    <Button
+                      fullWidth
+                      variant="primary"
                       onClick={() => handleUpgrade(plan.name)}
                       loading={isLoading}
                     >
