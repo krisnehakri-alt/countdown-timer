@@ -24,8 +24,6 @@ export default function App() {
         <s-app-nav>
           <s-link href="/app">Dashboard</s-link>
           <s-link href="/app/templates">Templates</s-link>
-          <s-link href="/app/countdowns">My Countdowns</s-link>
-          <s-link href="/app/analytics">Analytics</s-link>
           <s-link href="/app/billing">Billing</s-link>
         </s-app-nav>
         <Outlet />

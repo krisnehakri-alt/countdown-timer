@@ -131,9 +131,6 @@ export default function Index() {
                   <Button variant="primary" onClick={() => navigate("/app/templates")}>
                     Create New Countdown
                   </Button>
-                  <Button onClick={() => navigate("/app/countdowns")}>
-                    Manage Countdowns
-                  </Button>
                 </InlineStack>
               </BlockStack>
             </Card>

@@ -43,6 +43,9 @@ export function CountdownPreview({ template, customization = {} }) {
     containerStyle.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
   } else if (template.id === 'template-2') {
     // Glassmorphism
+    if (backgroundColor === 'rgba(255, 255, 255, 0.1)') {
+      containerStyle.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(147, 51, 234, 0.9))';
+    }
     containerStyle.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
     containerStyle.backdropFilter = 'blur(10px)';
     containerStyle.border = '1px solid rgba(255,255,255,0.2)';

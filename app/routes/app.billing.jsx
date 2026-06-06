@@ -82,8 +82,7 @@ export const action = async ({ request }) => {
 
   if (amount === 0) return redirect("/app/billing");
 
-  const returnUrl = `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`;
-
+  const returnUrl = `${process.env.SHOPIFY_APP_URL}/app`;
   const createResponse = await admin.graphql(`
     mutation CreateSubscription($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean) {
       appSubscriptionCreate(name: $name, lineItems: $lineItems, returnUrl: $returnUrl, test: $test) {
@@ -131,7 +130,7 @@ export const action = async ({ request }) => {
     console.log("[Billing Flow] returnUrl used in mutation:", returnUrl);
     console.log("[Billing Flow] confirmationUrl received:", confirmationUrl);
     console.log("[Billing Flow] Redirect method being executed: Client-side top-level navigation via useActionData and window.open");
-    
+
     // Return the confirmationUrl to the client instead of doing a server-side redirect, 
     // which causes the browser to try and follow a 302 inside the iframe fetch request.
     return { confirmationUrl };

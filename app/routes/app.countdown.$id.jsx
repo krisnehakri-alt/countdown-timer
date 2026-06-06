@@ -34,7 +34,7 @@ export const loader = async ({ request, params }) => {
   if (id !== "new") {
     const existing = await prisma.countdown.findUnique({ where: { id, shopId: shop } });
     if (!existing) {
-      return redirect("/app/countdowns");
+      return redirect("/app");
     }
     countdown = existing;
   }
@@ -97,7 +97,7 @@ export const action = async ({ request, params }) => {
     });
   }
 
-  return redirect("/app/countdowns");
+  return redirect("/app");
 };
 
 export default function CountdownEditor() {
@@ -117,7 +117,7 @@ export default function CountdownEditor() {
 
   return (
     <Page
-      breadcrumbs={[{ content: 'Countdowns', onAction: () => navigate('/app/countdowns') }]}
+      breadcrumbs={[{ content: 'Dashboard', onAction: () => navigate('/app') }]}
       title={countdown.id ? 'Edit Countdown' : 'Create Countdown'}
       primaryAction={{
         content: 'Save',

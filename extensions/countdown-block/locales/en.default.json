@@ -1,0 +1,10 @@
+{
+  "name": "Countdown Timer",
+  "start_date": "Start Date",
+  "end_date": "End Date",
+  "message": "Hurry up! Offer ends soon",
+  "days": "Days",
+  "hours": "Hours",
+  "minutes": "Minutes",
+  "seconds": "Seconds"
+}
