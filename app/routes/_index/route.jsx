@@ -1,7 +1,13 @@
-import { Form } from "react-router";
+import { Form, redirect } from "react-router";
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }) => {
+  const url = new URL(request.url);
+
+  if (url.searchParams.get("shop")) {
+    throw redirect(`/app?${url.searchParams.toString()}`);
+  }
+
   return null;
 };
 
