@@ -1,4 +1,4 @@
-import { useLoaderData, useSubmit, useNavigation, redirect, useActionData } from "react-router";
+import { useLoaderData, useSubmit, useNavigation, redirect } from "react-router";
 import { Page, Card, Text, Button, BlockStack, InlineStack, Badge, Grid, Divider, List } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -38,110 +38,16 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, session, redirect: shopifyRedirect } = await authenticate.admin(request);
-  const formData = await request.formData();
-  const plan = formData.get("plan");
-
-  // Query active subscriptions to cancel them if needed
-  const response = await admin.graphql(`
-    query getActiveSubscriptions {
-      currentAppInstallation {
-        activeSubscriptions {
-          id
-        }
-      }
-    }
-  `);
-  const { data } = await response.json();
-  const activeSubscriptions = data?.currentAppInstallation?.activeSubscriptions || [];
-
-  if (plan === "Free") {
-    // Cancel all active subscriptions
-    for (const sub of activeSubscriptions) {
-      await admin.graphql(`
-        mutation CancelSubscription($id: ID!) {
-          appSubscriptionCancel(id: $id, prorate: true) {
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `, {
-        variables: { id: sub.id }
-      });
-    }
-    return redirect("/app/billing");
-  }
-
-  // Define pricing
-  let amount = 0;
-  if (plan === MONTHLY_PLAN_STARTER) amount = 39.00;
-  else if (plan === MONTHLY_PLAN_GROWTH) amount = 59.00;
-  else if (plan === MONTHLY_PLAN_PREMIUM) amount = 99.00;
-
-  if (amount === 0) return redirect("/app/billing");
-
-  const returnUrl = `${process.env.SHOPIFY_APP_URL}/app`;
-  const createResponse = await admin.graphql(`
-    mutation CreateSubscription($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean) {
-      appSubscriptionCreate(name: $name, lineItems: $lineItems, returnUrl: $returnUrl, test: $test) {
-        appSubscription {
-          id
-        }
-        confirmationUrl
-        userErrors {
-          field
-          message
-        }
-      }
-    }
-  `, {
-    variables: {
-      name: plan,
-      returnUrl: returnUrl,
-      test: true,
-      lineItems: [
-        {
-          plan: {
-            appRecurringPricingDetails: {
-              price: {
-                amount: amount,
-                currencyCode: "USD"
-              },
-              interval: "EVERY_30_DAYS"
-            }
-          }
-        }
-      ]
-    }
-  });
-
-  const createData = await createResponse.json();
-  const confirmationUrl = createData.data?.appSubscriptionCreate?.confirmationUrl;
-  const userErrors = createData.data?.appSubscriptionCreate?.userErrors;
-
-  if (userErrors && userErrors.length > 0) {
-    console.error("Subscription create errors:", userErrors);
-    return null;
-  }
-
-  if (confirmationUrl) {
-    console.log("[Billing Flow] returnUrl used in mutation:", returnUrl);
-    console.log("[Billing Flow] confirmationUrl received:", confirmationUrl);
-    console.log("[Billing Flow] Redirect method being executed: Client-side top-level navigation via useActionData and window.open");
-
-    // Return the confirmationUrl to the client instead of doing a server-side redirect, 
-    // which causes the browser to try and follow a 302 inside the iframe fetch request.
-    return { confirmationUrl };
-  }
-
-  return redirect("/app/billing");
+  await authenticate.admin(request);
+  
+  // Directly redirect to the dashboard without doing Shopify billing mutations
+  // This prevents any OAuth install loops or manual shop login forms.
+  return redirect("/app");
 };
 
 export default function BillingPage() {
   const { currentPlan, success } = useLoaderData();
-  const actionData = useActionData();
+
   const submit = useSubmit();
   const navigation = useNavigation();
   const isLoading = navigation.state === "submitting";
@@ -153,12 +59,7 @@ export default function BillingPage() {
     }
   }, [success, shopify]);
 
-  useEffect(() => {
-    if (actionData?.confirmationUrl) {
-      console.log("[Billing Flow] Client executing window.open to confirmationUrl:", actionData.confirmationUrl);
-      window.open(actionData.confirmationUrl, "_top");
-    }
-  }, [actionData]);
+
 
   const handleUpgrade = (planName) => {
     submit({ plan: planName }, { method: "post" });
