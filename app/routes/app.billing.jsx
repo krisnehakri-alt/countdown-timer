@@ -3,46 +3,70 @@ import { Page, Card, Text, Button, BlockStack, InlineStack, Badge, Grid, Divider
 import { authenticate } from "../shopify.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useEffect } from "react";
+import prisma from "../db.server";
 
 const MONTHLY_PLAN_STARTER = "Starter Plan";
 const MONTHLY_PLAN_GROWTH = "Growth Plan";
 const MONTHLY_PLAN_PREMIUM = "Premium Plan";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  // Check active subscriptions via Shopify billing API
+  const billingCheck = await billing.check();
+  let currentPlan = "Free";
+  if (billingCheck.hasActivePayment) {
+    currentPlan = billingCheck.appSubscriptions[0].name;
+  }
+
+  // Sync plan to database
+  await prisma.shop.upsert({
+    where: { shop },
+    update: { plan: currentPlan },
+    create: { shop, plan: currentPlan },
+  });
+
   const url = new URL(request.url);
   const chargeId = url.searchParams.get("charge_id");
-
-  // Query active subscriptions
-  const response = await admin.graphql(`
-    query getActiveSubscriptions {
-      currentAppInstallation {
-        activeSubscriptions {
-          id
-          name
-          test
-        }
-      }
-    }
-  `);
-
-  const { data } = await response.json();
-  const activeSubscriptions = data?.currentAppInstallation?.activeSubscriptions || [];
-
-  let currentPlan = "Free";
-  if (activeSubscriptions.length > 0) {
-    currentPlan = activeSubscriptions[0].name;
-  }
 
   return { currentPlan, success: !!chargeId };
 };
 
 export const action = async ({ request }) => {
-  await authenticate.admin(request);
-  
-  // Directly redirect to the dashboard without doing Shopify billing mutations
-  // This prevents any OAuth install loops or manual shop login forms.
-  return redirect("/app");
+  const { session, billing } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  const formData = await request.formData();
+  const planName = formData.get("plan");
+
+  // Downgrade to Free: cancel active subscription
+  if (planName === "Free") {
+    const billingCheck = await billing.check();
+    if (billingCheck.hasActivePayment) {
+      const activeSubscription = billingCheck.appSubscriptions[0];
+      await billing.cancel({
+        subscriptionId: activeSubscription.id,
+        isTest: activeSubscription.test,
+        prorate: true,
+      });
+    }
+    await prisma.shop.upsert({
+      where: { shop },
+      update: { plan: "Free" },
+      create: { shop, plan: "Free" },
+    });
+    return redirect("/app");
+  }
+
+  // Upgrade to a paid plan: request Shopify managed billing
+  // billing.request() returns a redirect Response to the Shopify approval page.
+  // We MUST return it so React Router follows the redirect properly.
+  return billing.request({
+    plan: planName,
+    isTest: true,
+    returnUrl: `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/countdown-timer/app/billing`,
+  });
 };
 
 export default function BillingPage() {

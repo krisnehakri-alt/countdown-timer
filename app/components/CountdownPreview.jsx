@@ -69,7 +69,14 @@ export function CountdownPreview({ template, customization = {} }) {
     </div>
   );
 
+  const wrapperStyle = template.id === 'template-2' ? {
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    borderRadius: '12px',
+    padding: '2px',
+  } : {};
+
   return (
+    <div style={wrapperStyle}>
     <div style={containerStyle}>
       <h3 style={{ color: fontColor, fontSize: '22px', fontWeight: 'bold', marginBottom: '8px', marginTop: 0 }}>{title}</h3>
       <p style={{ color: textColor, marginBottom: '20px', fontSize: '15px' }}>{description}</p>
@@ -97,6 +104,7 @@ export function CountdownPreview({ template, customization = {} }) {
       }}>
         {ctaText}
       </button>
+    </div>
     </div>
   );
 }

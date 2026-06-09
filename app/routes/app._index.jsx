@@ -23,6 +23,13 @@ export const loader = async ({ request }) => {
     currentPlan = billingCheck.appSubscriptions[0].name;
   }
 
+  // Sync plan to database
+  await prisma.shop.upsert({
+    where: { shop },
+    update: { plan: currentPlan },
+    create: { shop, plan: currentPlan },
+  });
+
   // Get active countdowns
   const activeCountdowns = await prisma.countdown.count({
     where: { shopId: shop, active: true }

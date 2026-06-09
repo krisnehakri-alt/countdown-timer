@@ -42,9 +42,9 @@ export const loader = async ({ request, params }) => {
   const template = getTemplateById(countdown.templateId);
   const templateTiers = { "Free": 1, "Starter": 2, "Growth": 3, "Premium": 4 };
   
-  // If user downgraded and tries to edit a locked template
+  // If user tries to access a locked template, redirect to billing
   if (currentTierScore < templateTiers[template.tier]) {
-    // Optionally we can force downgrade the template, or just warn them. Let's just pass unlocked status.
+    return redirect("/app/billing");
   }
 
   // Populate missing colors with template defaults
