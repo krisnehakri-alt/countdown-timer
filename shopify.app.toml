@@ -24,7 +24,11 @@ api_version = "2026-07"
 scopes = "write_products,write_metaobjects,write_metaobject_definitions"
 
 [auth]
-redirect_urls = [ "https://countdown-timer-five-swart.vercel.app/api/auth" ]
+redirect_urls = [
+  "https://countdown-timer-five-swart.vercel.app/auth/callback",
+  "https://countdown-timer-five-swart.vercel.app/auth/login",
+  "https://countdown-timer-five-swart.vercel.app/api/auth/callback"
+]
 
 [app_proxy]
 url = "https://countdown-timer-five-swart.vercel.app/api"
