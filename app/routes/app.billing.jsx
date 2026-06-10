@@ -20,25 +20,32 @@ export const loader = async ({ request }) => {
     currentPlan = billingCheck.appSubscriptions[0].name;
   }
 
-  // Sync plan to database
+  // Sync plan to database using only the existing Shop.plan field
   await prisma.shop.upsert({
     where: { shop },
     update: { plan: currentPlan },
     create: { shop, plan: currentPlan },
   });
 
+  // If Shopify redirected back here after payment approval, go straight to dashboard.
+  // The charge_id param indicates a completed billing flow — plan is already synced above.
   const url = new URL(request.url);
   const chargeId = url.searchParams.get("charge_id");
+  if (chargeId) {
+    return redirect("/app");
+  }
 
-  return { currentPlan, success: !!chargeId };
+  return { currentPlan };
 };
 
 export const action = async ({ request }) => {
+  console.log("=== BILLING ACTION HIT ===");
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
   const formData = await request.formData();
   const planName = formData.get("plan");
+  console.log("Selected plan:", planName);
 
   // Downgrade to Free: cancel active subscription
   if (planName === "Free") {
@@ -59,18 +66,23 @@ export const action = async ({ request }) => {
     return redirect("/app");
   }
 
-  // Upgrade to a paid plan: request Shopify managed billing
-  // billing.request() returns a redirect Response to the Shopify approval page.
-  // We MUST return it so React Router follows the redirect properly.
+  // Upgrade to a paid plan.
+  // returnUrl must point to the app's own server URL (not admin.shopify.com) so that
+  // after Shopify redirects back with charge_id, our loader runs, syncs the plan,
+  // and immediately redirects to /app — the merchant never sees a blank page.
+  const appUrl = process.env.SHOPIFY_APP_URL || "";
+  console.log("App URL:", appUrl);
+  console.log("Return URL:", `${appUrl}/app/billing`);
+  console.log("Requesting plan:", planName);
   return billing.request({
     plan: planName,
     isTest: true,
-    returnUrl: `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/countdown-timer/app/billing`,
+    returnUrl: `${appUrl}/app/billing`,
   });
 };
 
 export default function BillingPage() {
-  const { currentPlan, success } = useLoaderData();
+  const { currentPlan } = useLoaderData();
 
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -78,12 +90,9 @@ export default function BillingPage() {
   const shopify = useAppBridge();
 
   useEffect(() => {
-    if (success) {
-      shopify.toast.show("Subscription activated successfully!");
-    }
-  }, [success, shopify]);
-
-
+    // success toast is no longer needed here since we redirect on charge_id,
+    // but keep the hook in case the app bridge is used elsewhere.
+  }, [shopify]);
 
   const handleUpgrade = (planName) => {
     submit({ plan: planName }, { method: "post" });
