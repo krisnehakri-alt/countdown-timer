@@ -11,6 +11,7 @@ import {
   Grid
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
+import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
@@ -147,3 +148,7 @@ export default function Index() {
     </Page>
   );
 }
+
+export const headers = (headersArgs) => {
+  return boundary.headers(headersArgs);
+};
