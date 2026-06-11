@@ -65,6 +65,14 @@ export const action = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
+  console.log("--- SESSION DIAGNOSTICS ---");
+  console.log("SHOP", session.shop);
+  console.log("ACCESS TOKEN", session.accessToken?.substring(0,20));
+  console.log("SESSION ID", session.id);
+  console.log("IS ONLINE", session.isOnline);
+  console.log("HAS REFRESH TOKEN", !!session.refreshToken);
+  console.log("---------------------------");
+
   const formData = await request.formData();
   const planName = formData.get("plan");
   console.log("Selected plan:", planName);

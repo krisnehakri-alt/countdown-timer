@@ -50,6 +50,23 @@ const shopify = shopifyApp({
       ],
     },
   },
+  hooks: {
+    afterAuth: async ({ session }) => {
+      // Runs after every successful OAuth / token-exchange.
+      // Ensures our Shop record is always created on first install.
+      try {
+        await prisma.shop.upsert({
+          where: { shop: session.shop },
+          update: {},
+          create: { shop: session.shop, plan: "Free" },
+        });
+        console.log(`[afterAuth] Shop record ensured for ${session.shop}`);
+      } catch (e) {
+        console.error(`[afterAuth] Failed to upsert shop record:`, e.message);
+      }
+      shopify.registerWebhooks({ session });
+    },
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
