@@ -18,18 +18,37 @@ export const loader = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
-  const billingCheck = await billing.check();
+  // Attempt to read live plan from Shopify Billing API.
+  // Falls back to DB plan on any error (403, network, etc.).
   let currentPlan = "Free";
-  if (billingCheck.hasActivePayment) {
-    currentPlan = billingCheck.appSubscriptions[0].name;
+  try {
+    const billingCheck = await billing.check({
+      plans: ["Starter Plan", "Growth Plan", "Premium Plan"],
+      isTest: true,
+    });
+    if (billingCheck.hasActivePayment) {
+      currentPlan = billingCheck.appSubscriptions[0].name;
+    }
+  } catch (err) {
+    console.error("[Dashboard Loader] billing.check() failed, falling back to DB:", err.message);
+    try {
+      const shopRecord = await prisma.shop.findUnique({ where: { shop } });
+      if (shopRecord?.plan) currentPlan = shopRecord.plan;
+    } catch (dbErr) {
+      console.error("[Dashboard Loader] DB fallback failed:", dbErr.message);
+    }
   }
 
   // Sync plan to database
-  await prisma.shop.upsert({
-    where: { shop },
-    update: { plan: currentPlan },
-    create: { shop, plan: currentPlan },
-  });
+  try {
+    await prisma.shop.upsert({
+      where: { shop },
+      update: { plan: currentPlan },
+      create: { shop, plan: currentPlan },
+    });
+  } catch (dbErr) {
+    console.error("[Dashboard Loader] DB upsert failed:", dbErr.message);
+  }
 
   // Get active countdowns
   const activeCountdowns = await prisma.countdown.count({

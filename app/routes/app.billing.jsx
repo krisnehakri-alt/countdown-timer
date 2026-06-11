@@ -9,26 +9,48 @@ const MONTHLY_PLAN_STARTER = "Starter Plan";
 const MONTHLY_PLAN_GROWTH = "Growth Plan";
 const MONTHLY_PLAN_PREMIUM = "Premium Plan";
 
+// All plan names the billing API should check for
+const ALL_PLANS = [MONTHLY_PLAN_STARTER, MONTHLY_PLAN_GROWTH, MONTHLY_PLAN_PREMIUM];
+
 export const loader = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Check active subscriptions via Shopify billing API
-  const billingCheck = await billing.check();
+  // Attempt to read the live plan from Shopify Billing API.
+  // Falls back to the plan stored in our DB if Shopify returns an error
+  // (e.g. 403 on a dev store where billing is not yet activated).
   let currentPlan = "Free";
-  if (billingCheck.hasActivePayment) {
-    currentPlan = billingCheck.appSubscriptions[0].name;
+  try {
+    const billingCheck = await billing.check({
+      plans: ALL_PLANS,
+      isTest: true,
+    });
+    if (billingCheck.hasActivePayment) {
+      currentPlan = billingCheck.appSubscriptions[0].name;
+    }
+  } catch (err) {
+    console.error("[Billing Loader] billing.check() failed, falling back to DB plan:", err.message);
+    // Read the last-known plan from our own database as the fallback
+    try {
+      const shopRecord = await prisma.shop.findUnique({ where: { shop } });
+      if (shopRecord?.plan) currentPlan = shopRecord.plan;
+    } catch (dbErr) {
+      console.error("[Billing Loader] DB fallback also failed:", dbErr.message);
+    }
   }
 
-  // Sync plan to database using only the existing Shop.plan field
-  await prisma.shop.upsert({
-    where: { shop },
-    update: { plan: currentPlan },
-    create: { shop, plan: currentPlan },
-  });
+  // Sync whatever plan we resolved back into the database
+  try {
+    await prisma.shop.upsert({
+      where: { shop },
+      update: { plan: currentPlan },
+      create: { shop, plan: currentPlan },
+    });
+  } catch (dbErr) {
+    console.error("[Billing Loader] DB upsert failed:", dbErr.message);
+  }
 
   // If Shopify redirected back here after payment approval, go straight to dashboard.
-  // The charge_id param indicates a completed billing flow — plan is already synced above.
   const url = new URL(request.url);
   const chargeId = url.searchParams.get("charge_id");
   if (chargeId) {
@@ -49,14 +71,22 @@ export const action = async ({ request }) => {
 
   // Downgrade to Free: cancel active subscription
   if (planName === "Free") {
-    const billingCheck = await billing.check();
-    if (billingCheck.hasActivePayment) {
-      const activeSubscription = billingCheck.appSubscriptions[0];
-      await billing.cancel({
-        subscriptionId: activeSubscription.id,
-        isTest: activeSubscription.test,
-        prorate: true,
+    try {
+      const billingCheck = await billing.check({
+        plans: ALL_PLANS,
+        isTest: true,
       });
+      if (billingCheck.hasActivePayment) {
+        const activeSubscription = billingCheck.appSubscriptions[0];
+        await billing.cancel({
+          subscriptionId: activeSubscription.id,
+          isTest: activeSubscription.test,
+          prorate: true,
+        });
+      }
+    } catch (err) {
+      console.error("[Billing Action] billing.check/cancel failed during downgrade:", err.message);
+      // Even if billing API fails, still sync the DB to Free so the UI is consistent
     }
     await prisma.shop.upsert({
       where: { shop },
@@ -66,19 +96,22 @@ export const action = async ({ request }) => {
     return redirect("/app");
   }
 
-  // Upgrade to a paid plan.
-  // returnUrl must point to the app's own server URL (not admin.shopify.com) so that
-  // after Shopify redirects back with charge_id, our loader runs, syncs the plan,
-  // and immediately redirects to /app — the merchant never sees a blank page.
+  // Upgrade to a paid plan
   const appUrl = process.env.SHOPIFY_APP_URL || "";
   console.log("App URL:", appUrl);
   console.log("Return URL:", `${appUrl}/app/billing`);
   console.log("Requesting plan:", planName);
-  return billing.request({
-    plan: planName,
-    isTest: true,
-    returnUrl: `${appUrl}/app/billing`,
-  });
+
+  try {
+    return billing.request({
+      plan: planName,
+      isTest: true,
+      returnUrl: `${appUrl}/app/billing`,
+    });
+  } catch (err) {
+    console.error("[Billing Action] billing.request() failed:", err.message);
+    return redirect("/app/billing");
+  }
 };
 
 export default function BillingPage() {

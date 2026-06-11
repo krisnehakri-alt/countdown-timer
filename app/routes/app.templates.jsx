@@ -4,14 +4,31 @@ import { authenticate } from "../shopify.server";
 import { useState } from "react";
 import { templates } from "../models/templates";
 import { CountdownPreview } from "../components/CountdownPreview";
+import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
-  const billingCheck = await billing.check();
-  
+  const { session, billing } = await authenticate.admin(request);
+
+  // Attempt to read live plan from Shopify Billing API.
+  // Falls back to DB plan on any error (403, network, etc.).
   let currentPlan = "Free";
-  if (billingCheck.hasActivePayment) {
-    currentPlan = billingCheck.appSubscriptions[0].name;
+  try {
+    const billingCheck = await billing.check({
+      plans: ["Starter Plan", "Growth Plan", "Premium Plan"],
+      isTest: true,
+    });
+    if (billingCheck.hasActivePayment) {
+      currentPlan = billingCheck.appSubscriptions[0].name;
+    }
+  } catch (err) {
+    console.error("[Templates Loader] billing.check() failed, falling back to DB:", err.message);
+    try {
+      const shop = session.shop;
+      const shopRecord = await prisma.shop.findUnique({ where: { shop } });
+      if (shopRecord?.plan) currentPlan = shopRecord.plan;
+    } catch (dbErr) {
+      console.error("[Templates Loader] DB fallback failed:", dbErr.message);
+    }
   }
 
   return { currentPlan };

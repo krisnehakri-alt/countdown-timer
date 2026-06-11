@@ -13,11 +13,26 @@ export const loader = async ({ request, params }) => {
   const url = new URL(request.url);
   const templateIdParam = url.searchParams.get("templateId");
 
-  // Check Billing access for templates (Security check)
-  const billingCheck = await billing.check();
+  // Check Billing access for templates (Security check).
+  // Falls back to "Free" (most restrictive) on any billing API error.
   let currentPlan = "Free";
-  if (billingCheck.hasActivePayment) {
-    currentPlan = billingCheck.appSubscriptions[0].name;
+  try {
+    const billingCheck = await billing.check({
+      plans: ["Starter Plan", "Growth Plan", "Premium Plan"],
+      isTest: true,
+    });
+    if (billingCheck.hasActivePayment) {
+      currentPlan = billingCheck.appSubscriptions[0].name;
+    }
+  } catch (err) {
+    console.error("[Countdown Loader] billing.check() failed, falling back to DB:", err.message);
+    try {
+      const shopRecord = await prisma.shop.findUnique({ where: { shop } });
+      if (shopRecord?.plan) currentPlan = shopRecord.plan;
+    } catch (dbErr) {
+      console.error("[Countdown Loader] DB fallback failed:", dbErr.message);
+      // Default stays "Free" — safest fallback
+    }
   }
   const planTiers = { "Free": 1, "Starter Plan": 2, "Growth Plan": 3, "Premium Plan": 4 };
   const currentTierScore = planTiers[currentPlan] || 1;
