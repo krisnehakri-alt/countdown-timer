@@ -29,9 +29,9 @@ export default function App() {
             </div>
             <span>Countdown Timer</span>
           </div>
-          <Form method="get" action="/app">
+          <form method="get" action="/auth/login">
              <button className={styles.signInBtn} type="submit">Sign In</button>
-          </Form>
+          </form>
         </nav>
 
         {/* Hero Section */}
@@ -47,7 +47,7 @@ export default function App() {
               Add beautiful countdown timers to your Shopify store and increase conversions without coding.
             </p>
             
-            <Form className={styles.ctaForm} method="get" action="/app">
+            <form className={styles.ctaForm} method="get" action="/auth/login">
               <input 
                 className={styles.ctaInput} 
                 type="text" 
@@ -58,7 +58,7 @@ export default function App() {
               <button className={styles.ctaButton} type="submit">
                 Open Dashboard <span>&rarr;</span>
               </button>
-            </Form>
+            </form>
           </div>
 
           <div className={styles.mockupWrapper}>
