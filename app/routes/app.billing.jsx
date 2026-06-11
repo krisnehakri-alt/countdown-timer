@@ -105,8 +105,11 @@ export const action = async ({ request }) => {
       isTest: true,
     });
   } catch (error) {
-    // Shopify billing.request() throws a Response object to redirect the merchant to the approval page.
-    if (error instanceof Response) {
+    // Shopify billing.request() throws a Response object to redirect the merchant.
+    // Use duck-typing because `instanceof Response` can fail in Node due to polyfills
+    const isResponse = error instanceof Response || (error && error.headers && typeof error.headers.get === 'function');
+    
+    if (isResponse) {
       // The redirect response contains the URL we need in the Location or X-Shopify-API-Request-Failure-Reauthorize-Url header
       const location = error.headers.get("Location") || error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
       if (location) {
@@ -117,8 +120,8 @@ export const action = async ({ request }) => {
     }
     
     // If it's a real error (like 403 Forbidden because of dev store billing limits), catch it gracefully.
-    console.error("[Billing Action] billing.request() failed:", error.message || error);
-    return redirect("/app/billing?error=billing_failed");
+    console.error("[Billing Action] billing.request() failed:", error?.message || error);
+    return redirect(`/app/billing?error=billing_failed&details=${encodeURIComponent(error?.message || "Unknown error")}`);
   }
 };
 
