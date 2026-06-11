@@ -97,20 +97,23 @@ export const action = async ({ request }) => {
   }
 
   // Upgrade to a paid plan
-  const appUrl = process.env.SHOPIFY_APP_URL || "";
-  console.log("App URL:", appUrl);
-  console.log("Return URL:", `${appUrl}/app/billing`);
   console.log("Requesting plan:", planName);
 
   try {
-    return billing.request({
+    await billing.request({
       plan: planName,
       isTest: true,
-      returnUrl: `${appUrl}/app/billing`,
     });
-  } catch (err) {
-    console.error("[Billing Action] billing.request() failed:", err.message);
-    return redirect("/app/billing");
+  } catch (error) {
+    // Shopify billing.request() throws a Response object to redirect the merchant to the approval page.
+    // We MUST rethrow it so React Router can execute the redirect.
+    if (error instanceof Response) {
+      throw error;
+    }
+    
+    // If it's a real error (like 403 Forbidden because of dev store billing limits), catch it gracefully.
+    console.error("[Billing Action] billing.request() failed:", error.message || error);
+    return redirect("/app/billing?error=billing_failed");
   }
 };
 
