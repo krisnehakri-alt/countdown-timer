@@ -41,18 +41,22 @@ export const loader = async ({ request }) => {
   });
 
   // Get Analytics
-  const analytics = await prisma.analyticsEvent.groupBy({
-    by: ['eventType'],
-    where: { countdown: { shopId: shop } },
-    _count: true
-  });
-
   let views = 0;
   let clicks = 0;
-  analytics.forEach(a => {
-    if (a.eventType === "VIEW") views = a._count;
-    if (a.eventType === "CLICK") clicks = a._count;
-  });
+  try {
+    const analytics = await prisma.analyticsEvent.groupBy({
+      by: ['eventType'],
+      where: { countdown: { shopId: shop } },
+      _count: { _all: true }
+    });
+    analytics.forEach(a => {
+      if (a.eventType === "VIEW") views = a._count._all;
+      if (a.eventType === "CLICK") clicks = a._count._all;
+    });
+  } catch (err) {
+    console.error("[Analytics Query Error]", err);
+    // Non-fatal: analytics failing should not crash the dashboard
+  }
 
   const conversionRate = views > 0 ? ((clicks / views) * 100).toFixed(2) : 0;
 

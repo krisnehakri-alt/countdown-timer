@@ -1,4 +1,4 @@
-import { useLoaderData, useSubmit, useNavigate, useActionData, redirect } from "react-router";
+import { useLoaderData, useSubmit, useNavigate, redirect } from "react-router";
 import { Page, Layout, Card, FormLayout, TextField, Button, BlockStack, Text, Grid } from "@shopify/polaris";
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
@@ -88,13 +88,21 @@ export const action = async ({ request, params }) => {
     active: data.active === "true"
   };
 
-  if (id === "new") {
-    await prisma.countdown.create({ data: payload });
-  } else {
-    await prisma.countdown.update({
-      where: { id, shopId: shop },
-      data: payload
-    });
+  try {
+    if (id === "new") {
+      await prisma.countdown.create({ data: payload });
+    } else {
+      await prisma.countdown.update({
+        where: { id, shopId: shop },
+        data: payload
+      });
+    }
+  } catch (error) {
+    console.error("[Countdown Action Error]", error);
+    return Response.json(
+      { error: "Failed to save countdown. Please check your inputs and try again.", details: error.message },
+      { status: 500 }
+    );
   }
 
   return redirect("/app");
