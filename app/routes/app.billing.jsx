@@ -1,4 +1,4 @@
-import { useLoaderData, useSubmit, useNavigation, redirect } from "react-router";
+import { useLoaderData, useSubmit, useNavigation, redirect, useActionData } from "react-router";
 import { Page, Card, Text, Button, BlockStack, InlineStack, Badge, Grid, Divider, List } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -106,8 +106,13 @@ export const action = async ({ request }) => {
     });
   } catch (error) {
     // Shopify billing.request() throws a Response object to redirect the merchant to the approval page.
-    // We MUST rethrow it so React Router can execute the redirect.
     if (error instanceof Response) {
+      // The redirect response contains the URL we need in the Location or X-Shopify-API-Request-Failure-Reauthorize-Url header
+      const location = error.headers.get("Location") || error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      if (location) {
+        // Return it as JSON so the client can perform a top-level window redirect out of the iframe
+        return Response.json({ confirmationUrl: location });
+      }
       throw error;
     }
     
@@ -122,13 +127,17 @@ export default function BillingPage() {
 
   const submit = useSubmit();
   const navigation = useNavigation();
+  const actionData = useActionData();
   const isLoading = navigation.state === "submitting";
   const shopify = useAppBridge();
 
   useEffect(() => {
-    // success toast is no longer needed here since we redirect on charge_id,
-    // but keep the hook in case the app bridge is used elsewhere.
-  }, [shopify]);
+    // If the server action returned a confirmationUrl for billing,
+    // we must redirect the top-level window to break out of the embedded iframe.
+    if (actionData?.confirmationUrl) {
+      window.top.location.replace(actionData.confirmationUrl);
+    }
+  }, [actionData]);
 
   const handleUpgrade = (planName) => {
     submit({ plan: planName }, { method: "post" });
