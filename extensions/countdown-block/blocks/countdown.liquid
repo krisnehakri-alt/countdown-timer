@@ -10,15 +10,99 @@
       "content": "Countdown Settings"
     },
     {
-      "type": "paragraph",
-      "content": "Manage your countdown campaigns from the app dashboard."
+      "type": "select",
+      "id": "templateId",
+      "label": "Template",
+      "options": [
+        { "value": "template-1", "label": "Clean Modern (Free)" },
+        { "value": "template-2", "label": "Floating Glass (Starter)" },
+        { "value": "template-3", "label": "Neon Sale (Starter)" },
+        { "value": "template-4", "label": "Luxury Dark (Growth)" },
+        { "value": "template-5", "label": "Product Launch (Growth)" },
+        { "value": "template-6", "label": "Black & Gold VIP (Premium)" },
+        { "value": "template-7", "label": "Enterprise Ultra (Premium)" }
+      ],
+      "default": "template-1"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "New Campaign"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "default": "Don't miss out on this deal!"
+    },
+    {
+      "type": "text",
+      "id": "expiryDate",
+      "label": "Expiry Date & Time",
+      "info": "Format: YYYY-MM-DD HH:MM",
+      "default": "2026-12-31 23:59"
+    },
+    {
+      "type": "text",
+      "id": "ctaText",
+      "label": "CTA Button Text",
+      "default": "Shop Now"
+    },
+    {
+      "type": "url",
+      "id": "ctaUrl",
+      "label": "CTA Button URL"
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "fontColor",
+      "label": "Font Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "textColor",
+      "label": "Text Color",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "buttonColor",
+      "label": "Button Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "backgroundColor",
+      "label": "Background Color",
+      "default": "#ffffff"
     }
   ]
 }
 {% endschema %}
 
-<div class="countdown-pro-wrapper" data-shop="{{ shop.domain }}">
-  <div class="countdown-pro-container" id="countdown-pro-container">
+<div class="countdown-pro-wrapper" data-shop="{{ shop.domain }}" data-block-id="{{ block.id }}">
+  <script type="application/json" id="countdown-config-{{ block.id }}">
+    {
+      "id": "{{ block.id }}",
+      "templateId": {{ block.settings.templateId | json }},
+      "title": {{ block.settings.title | json }},
+      "description": {{ block.settings.description | json }},
+      "expiryDate": {{ block.settings.expiryDate | json }},
+      "ctaText": {{ block.settings.ctaText | json }},
+      "ctaUrl": {{ block.settings.ctaUrl | json }},
+      "fontColor": {{ block.settings.fontColor | json }},
+      "textColor": {{ block.settings.textColor | json }},
+      "buttonColor": {{ block.settings.buttonColor | json }},
+      "backgroundColor": {{ block.settings.backgroundColor | json }}
+    }
+  </script>
+  <div class="countdown-pro-container" id="countdown-pro-container-{{ block.id }}">
     <!-- Rendered dynamically via JS -->
   </div>
 </div>
